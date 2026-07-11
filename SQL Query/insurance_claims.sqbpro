@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="insurance_claims.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="6217"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="insurance_claims" custom_title="0" dock_id="1" table="4,16:maininsurance_claims"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000011300ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="Insurance Claims*">#TOTAL CLAIMS
+
+SELECT COUNT(*) AS total_claims
+FROM insurance_claims;
+
+#FRAUD RATE
+
+SELECT
+fraud_reported,
+COUNT(*) AS claims
+FROM insurance_claims
+GROUP BY fraud_reported;
+
+#TOP INCIDENT TYPES
+
+SELECT
+incident_type,
+COUNT(*) AS total_claims
+FROM insurance_claims
+GROUP BY incident_type
+ORDER BY total_claims DESC;
+
+#FRAUD BY INCIDENT TYPE 
+
+SELECT
+incident_type,
+SUM(
+CASE
+WHEN fraud_reported='Y'
+THEN 1
+ELSE 0
+END
+) AS fraud_cases
+FROM insurance_claims
+GROUP BY incident_type
+ORDER BY fraud_cases DESC;
+
+#FRAUD BY STATE
+
+SELECT
+policy_state,
+SUM(
+CASE
+WHEN fraud_reported='Y'
+THEN 1
+ELSE 0
+END
+) AS fraud_cases
+FROM insurance_claims
+GROUP BY policy_state
+ORDER BY fraud_cases DESC;
+
+#HIGH VALUE CLAIMS
+
+SELECT *
+FROM insurance_claims
+WHERE total_claim_amount &gt;
+(
+SELECT
+AVG(total_claim_amount)
+FROM insurance_claims
+);
+
+#FRAUD PERCENTAGE
+
+SELECT
+ROUND(
+100.0 *
+SUM(
+CASE
+WHEN fraud_reported='Y'
+THEN 1
+ELSE 0
+END
+)
+/
+COUNT(*)
+,2)
+AS fraud_percentage
+FROM insurance_claims;
+
+#Regional fraud hotspots
+
+SELECT region, COUNT(*) AS claims,
+       ROUND(AVG(fraud_reported)*100,2) AS fraud_rate_pct,
+       ROUND(SUM(claim_amount*fraud_reported)/1e5,1) AS exposure_lakhs
+FROM claims GROUP BY region ORDER BY exposure_lakhs DESC;
+
+#High-risk segment: new policy + no police report
+
+SELECT
+  CASE WHEN policy_tenure_yrs<1 THEN 'New (<1yr)' ELSE 'Established' END AS segment,
+  CASE WHEN police_report=0 THEN 'No Report' ELSE 'Has Report' END AS doc_flag,
+  COUNT(*) AS claims,
+  ROUND(AVG(fraud_reported)*100,2) AS fraud_rate_pct
+FROM claims
+GROUP BY segment, doc_flag
+HAVING COUNT(*) >= 20
+ORDER BY fraud_rate_pct DESC;
+
+#Fraud rate + exposure by claim type
+
+SELECT claim_type,
+       COUNT(*) AS total_claims,
+       SUM(fraud_reported) AS fraud_count,
+       ROUND(AVG(fraud_reported)*100, 2) AS fraud_rate_pct,
+       ROUND(SUM(claim_amount*fraud_reported)/1e5, 1) AS exposure_lakhs
+FROM claims
+GROUP BY claim_type ORDER BY fraud_rate_pct DESC;
+
+</sql><current_tab id="0"/></tab_sql></sqlb_project>
